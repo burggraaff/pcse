@@ -19,6 +19,23 @@ _re_scalar = "[a-zA-Z0-9_]+[\s]*=[\s]*[a-zA-Z0-9_.\-]+"
 _re_table = "[a-zA-Z0-9_]+[\s]*=[\s]*[0-9,.\s\-+]+"
 _re_string = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
 
+def _remove_whitespace(filecontents):
+    """
+    Remove whitespace (space, newline) from all lines
+    """
+    return [line.strip(" \n\r") for line in filecontents]
+
+def _remove_empty_lines(filecontents):
+    """
+    Return only non-empty ("") lines
+    """
+    return [line for line in filecontents if len(line) > 0]
+
+def _remove_inline_comments(filecontents):
+    """
+    Remove inline comments (marked by a !) from all lines
+    """
+    return [line.split("!")[0] for line in filecontents]
 
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
@@ -76,23 +93,6 @@ class CABOFileReader(dict):
         CRPNAM: Winter wheat 102, Ireland, N-U.K., Netherlands, N-Germany <class 'str'>
         DTSMTB: [0.0, 0.0, 30.0, 30.0, 45.0, 30.0] <class 'list'>
     """
-    def _remove_empty_lines(self, filecontents):
-        t = []
-        for line in filecontents:
-            line = line.strip(" \n\r")
-            if len(line)>0:
-                t.append(line)
-        return t
-
-    def _remove_inline_comments(self, filecontents):
-        t = []
-        for line in filecontents:
-            line = line.split("!")[0]
-            line.strip()
-            if len(line) > 0:
-                t.append(line)
-        return t
-
     def _is_comment(self, line):
         if line.startswith("*"):
             return True
@@ -166,10 +166,14 @@ class CABOFileReader(dict):
         return par_definitions
 
     def __init__(self, fname):
+        # Read the file
         with open(fname) as fp:
             filecontents = fp.readlines()
-        filecontents = self._remove_empty_lines(filecontents)
-        filecontents = self._remove_inline_comments(filecontents)
+
+        # Cleanup: remove in-line comments, whitespace, empty lines
+        filecontents = _remove_inline_comments(filecontents)
+        filecontents = _remove_whitespace(filecontents)
+        filecontents = _remove_empty_lines(filecontents)
 
         if len(filecontents) == 0:
             msg = "Empty CABO file!"
