@@ -14,6 +14,12 @@ class LengthError(PCSEError):
 class DuplicateError(PCSEError):
     pass
 
+# Regular expressions for parsing scalar, table and string parameters
+_re_scalar = "[a-zA-Z0-9_]+[\s]*=[\s]*[a-zA-Z0-9_.\-]+"
+_re_table = "[a-zA-Z0-9_]+[\s]*=[\s]*[0-9,.\s\-+]+"
+_re_string = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
+
+
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
 
@@ -70,12 +76,6 @@ class CABOFileReader(dict):
         CRPNAM: Winter wheat 102, Ireland, N-U.K., Netherlands, N-Germany <class 'str'>
         DTSMTB: [0.0, 0.0, 30.0, 30.0, 45.0, 30.0] <class 'list'>
     """
-
-    # RE patterns for parsing scalar, table and string parameters
-    scpar = "[a-zA-Z0-9_]+[\s]*=[\s]*[a-zA-Z0-9_.\-]+"
-    tbpar = "[a-zA-Z0-9_]+[\s]*=[\s]*[0-9,.\s\-+]+"
-    strpar = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
-
     def _remove_empty_lines(self, filecontents):
         t = []
         for line in filecontents:
@@ -182,9 +182,9 @@ class CABOFileReader(dict):
         scalars, strings, tables = self._find_parameter_sections(filecontents)
 
         # Parse into individual parameter definitions
-        scalar_defs = self._find_individual_pardefs(self.scpar, scalars)
-        table_defs = self._find_individual_pardefs(self.tbpar, tables)
-        string_defs = self._find_individual_pardefs(self.strpar, strings)
+        scalar_defs = self._find_individual_pardefs(_re_scalar, scalars)
+        table_defs = self._find_individual_pardefs(_re_table, tables)
+        string_defs = self._find_individual_pardefs(_re_string, strings)
 
         # Parse individual parameter definitions into name & value.
         for parstr in scalar_defs:
