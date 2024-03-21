@@ -100,6 +100,68 @@ def _find_individual_pardefs(regexp, parsections):
 
     return par_definitions
 
+def _parse_scalar_pardef(parstr):
+    """
+    Parse a scalar parameter definition into a (key, value) pair.
+    """
+    try:
+        parname, valuestr = parstr.split("=")
+        if "." in valuestr:
+            value = float(valuestr)
+        else:
+            value = int(valuestr)
+    except ValueError:
+        msg = f"Failed to parse parameter string: '{parstr}'"
+        raise PCSEError(msg)
+
+    parname = parname.strip()
+    return (parname, value)
+
+def _parse_string_pardef(parstr):
+    """
+    Parse a string parameter definition into a (key, value) pair.
+    """
+    try:
+        parname, valuestr = parstr.split("=", 1)
+        value = valuestr.replace("'", "").replace('"', "")
+    except ValueError:
+        msg = f"Failed to parse parameter string: '{parstr}'"
+        raise PCSEError(msg)
+
+    parname = parname.strip()
+    return (parname, value)
+
+def _parse_table_pardef(parstr):
+    """
+    Parses table parameter into a list of floats.
+    """
+    try:
+        parname, valuestr = parstr.split("=")
+    except ValueError:
+        msg = f"Failed to parse parameter string: '{parstr}'"
+        raise PCSEError(msg)
+
+    parname = parname.strip()
+    valuestrings = valuestr.split(",")
+
+    # Check if the data match length/shape requirements
+    n_valuestrings = len(valuestrings)
+    if n_valuestrings < 4:
+        msg = (f"Failed to parse table parameter '{parname}': '{valuestr}'\n"
+                "Table parameters should contain at least 4 values.\n"
+               f"Instead found {n_valuestrings} values.")
+        raise LengthError(msg)
+    if (n_valuestrings % 2) != 0:
+        msg = (f"Failed to parse table parameter '{parname}': '{valuestr}'\n"
+                "Table parameters should contain an even number of values.\n"
+               f"Instead found {n_valuestrings} values.")
+        raise XYPairsError(msg)
+
+    table = [float(v) for v in valuestrings]
+
+    return (parname, table)
+
+
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
 
@@ -156,22 +218,6 @@ class CABOFileReader(dict):
         CRPNAM: Winter wheat 102, Ireland, N-U.K., Netherlands, N-Germany <class 'str'>
         DTSMTB: [0.0, 0.0, 30.0, 30.0, 45.0, 30.0] <class 'list'>
     """
-    def _parse_table_values(self, parstr):
-        """Parses table parameter into a list of floats."""
-
-        tmpstr = parstr.strip()
-        valuestrs = tmpstr.split(",")
-        if len(valuestrs) < 4:
-            raise LengthError((len(valuestrs), valuestrs))
-        if (len(valuestrs) % 2) != 0:
-            raise XYPairsError((len(valuestrs), valuestrs))
-
-        tblvalues = []
-        for vstr in valuestrs:
-            value = float(vstr)
-            tblvalues.append(value)
-        return tblvalues
-
     def __init__(self, fname):
         # Read the file
         with open(fname) as fp:
@@ -194,51 +240,16 @@ class CABOFileReader(dict):
 
         # Parse into individual parameter definitions
         scalar_defs = _find_individual_pardefs(_re_scalar, scalars)
-        table_defs = _find_individual_pardefs(_re_table, tables)
         string_defs = _find_individual_pardefs(_re_string, strings)
+        table_defs = _find_individual_pardefs(_re_table, tables)
 
         # Parse individual parameter definitions into name & value.
-        for parstr in scalar_defs:
-            try:
-                parname, valuestr = parstr.split("=")
-                parname = parname.strip()
-                if valuestr.find(".") != -1:
-                    value = float(valuestr)
-                else:
-                    value = int(valuestr)
-                self[parname] = value
-            except (ValueError) as exc:
-                msg = "Failed to parse parameter, value: %s, %s"
-                raise PCSEError(msg % (parstr, valuestr))
+        scalar_pars = [_parse_scalar_pardef(d) for d in scalar_defs]
+        string_pars = [_parse_string_pardef(d) for d in string_defs]
+        table_pars = [_parse_table_pardef(d) for d in table_defs]
 
-        for parstr in string_defs:
-            try:
-                parname, valuestr = parstr.split("=", 1)
-                parname = parname.strip()
-                value = (valuestr.replace("'","")).replace('"','')
-                self[parname] = value
-            except (ValueError) as exc:
-                msg = "Failed to parse parameter, value: %s, %s"
-                raise PCSEError(msg % (parstr, valuestr))
-
-        for parstr in table_defs:
-            parname, valuestr = parstr.split("=")
-            parname = parname.strip()
-            try:
-                value = self._parse_table_values(valuestr)
-                self[parname] = value
-            except (ValueError) as exc:
-                msg = "Failed to parse table parameter %s: %s" % (parname, valuestr)
-                raise PCSEError(msg)
-            except (LengthError) as exc:
-                msg = "Failed to parse table parameter %s: %s. \n" % (parname, valuestr)
-                msg += "Table parameter should contain at least 4 values "
-                msg += "instead got %i"
-                raise PCSEError(msg % exc.value[0])
-            except (XYPairsError) as exc:
-                msg = "Failed to parse table parameter %s: %s\n" % (parname, valuestr)
-                msg += "Parameter should be have even number of positions."
-                raise XYPairsError(msg)
+        # Assign resulting values to the dictionary
+        self.update(scalar_pars + string_pars + table_pars)
 
     def __str__(self):
         msg = ""
