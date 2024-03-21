@@ -133,7 +133,8 @@ def _parse_string_pardef(parstr):
 
 def _parse_table_pardef(parstr):
     """
-    Parses table parameter into a list of floats.
+    Parse a string parameter definition into a (key, table) pair,
+    where table is a list of floats.
     """
     try:
         parname, valuestr = parstr.split("=")
@@ -202,9 +203,9 @@ class CABOFileReader(dict):
     Can be read with the following statements::
 
         >>>fileparameters = CABOFileReader('parfile.cab')
-        >>>print fileparameters['CROP_NO']
+        >>>print(fileparameters['CROP_NO'])
         99
-        >>>print fileparameters
+        >>>print(fileparameters)
         ** CROP DATA FILE for use with WOFOST Version 5.4, June 1992
         **
         ** WHEAT, WINTER 102
@@ -229,7 +230,7 @@ class CABOFileReader(dict):
         filecontents = _remove_empty_lines(filecontents)
 
         if len(filecontents) == 0:
-            msg = "Empty CABO file!"
+            msg = f"Empty CABO file: '{fname}'"
             raise PCSEError(msg)
 
         # Split between file header and parameters
