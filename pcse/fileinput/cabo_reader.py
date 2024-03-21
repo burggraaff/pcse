@@ -21,21 +21,47 @@ _re_string = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
 
 def _remove_whitespace(filecontents):
     """
-    Remove whitespace (space, newline) from all lines
+    Remove whitespace (space, newline) from all lines.
     """
     return [line.strip(" \n\r") for line in filecontents]
 
 def _remove_empty_lines(filecontents):
     """
-    Return only non-empty ("") lines
+    Return only non-empty ("") lines.
     """
     return [line for line in filecontents if len(line) > 0]
 
 def _remove_inline_comments(filecontents):
     """
-    Remove inline comments (marked by a !) from all lines
+    Remove inline comments (marked by a !) from all lines.
     """
     return [line.split("!")[0] for line in filecontents]
+
+def _is_comment(line):
+    return line.startswith("*")
+
+def _find_header(filecontents):
+    """
+    Splits a file into its header, which has lines starting with '*'
+    at the beginning of the file, and its body, which is the rest of
+    the file. Further lines marked with '*' are deleted.
+    """
+    # Find the first line that is not a comment
+    line_is_comment = [_is_comment(line) for line in filecontents]
+    try:
+        body_start = line_is_comment.index(False)
+    except ValueError:
+        msg = "No body text found, only header"
+        raise PCSEError(msg)
+
+    # Split the file into header and body
+    header = filecontents[:body_start]
+    body = filecontents[body_start:]
+
+    # Remove comments from the body
+    body = [line for line in body if not _is_comment(line)]
+
+    return header, body
 
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
@@ -93,33 +119,6 @@ class CABOFileReader(dict):
         CRPNAM: Winter wheat 102, Ireland, N-U.K., Netherlands, N-Germany <class 'str'>
         DTSMTB: [0.0, 0.0, 30.0, 30.0, 45.0, 30.0] <class 'list'>
     """
-    def _is_comment(self, line):
-        if line.startswith("*"):
-            return True
-        else:
-            return False
-
-    def _find_header(self, filecontents):
-        """Parses and strips header marked with '*' at the beginning of
-        the file. Further lines marked with '*' are deleted."""
-
-        header = []
-        other_contents = []
-        inheader = True
-        for line in filecontents:
-            if inheader is True:
-                if self._is_comment(line):
-                    header.append(line)
-                else:
-                    other_contents.append(line)
-                    inheader = False
-            else:
-                if self._is_comment(line):
-                    pass
-                else:
-                    other_contents.append(line)
-        return (header, other_contents)
-
     def _parse_table_values(self, parstr):
         """Parses table parameter into a list of floats."""
 
@@ -180,10 +179,10 @@ class CABOFileReader(dict):
             raise PCSEError(msg)
 
         # Split between file header and parameters
-        self.header, filecontents = self._find_header(filecontents)
+        self.header, body = _find_header(filecontents)
 
         # Find parameter sections using string methods
-        scalars, strings, tables = self._find_parameter_sections(filecontents)
+        scalars, strings, tables = self._find_parameter_sections(body)
 
         # Parse into individual parameter definitions
         scalar_defs = self._find_individual_pardefs(_re_scalar, scalars)
