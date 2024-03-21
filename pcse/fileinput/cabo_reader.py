@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2004-2014 Alterra, Wageningen-UR
 # Allard de Wit (allard.dewit@wur.nl), April 2014
+from pathlib import Path
 import re
 
 from ..exceptions import PCSEError
@@ -221,6 +222,7 @@ class CABOFileReader(dict):
     """
     def __init__(self, fname):
         # Read the file
+        self.source = Path(fname).absolute()
         with open(fname) as fp:
             filecontents = fp.readlines()
 
@@ -251,6 +253,12 @@ class CABOFileReader(dict):
 
         # Assign resulting values to the dictionary
         self.update(scalar_pars + string_pars + table_pars)
+
+    def __repr__(self):
+        cabotext = f"{self.__module__}.{self.__class__.__name__}(r\"{self.source}\")"
+        dicttext = super().__repr__()
+        msg = "\n".join([cabotext, dicttext])
+        return msg
 
     def __str__(self):
         headertext = "\n".join(self.header)
