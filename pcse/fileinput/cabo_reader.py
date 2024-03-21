@@ -261,8 +261,8 @@ class CABOFileReader(dict):
         return msg
 
     def __str__(self):
+        divider = "\n------------------------------------\n"
         headertext = "\n".join(self.header)
-        divider = "------------------------------------"
         bodytext = "\n".join(f"{key}: {value} {type(value)}" for key, value in self.items())
-        msg = "\n".join([headertext, divider, bodytext])
+        msg = divider.join([headertext, bodytext])
         return msg
