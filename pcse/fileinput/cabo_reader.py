@@ -253,10 +253,8 @@ class CABOFileReader(dict):
         self.update(scalar_pars + string_pars + table_pars)
 
     def __str__(self):
-        msg = ""
-        for line in self.header:
-            msg += line+"\n"
-        msg += "------------------------------------\n"
-        for key, value in self.items():
-            msg += ("%s: %s %s\n" % (key, value, type(value)))
+        headertext = "\n".join(self.header)
+        divider = "------------------------------------"
+        bodytext = "\n".join(f"{key}: {value} {type(value)}" for key, value in self.items())
+        msg = "\n".join([headertext, divider, bodytext])
         return msg
