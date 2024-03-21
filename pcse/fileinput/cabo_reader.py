@@ -14,11 +14,6 @@ class LengthError(PCSEError):
 class DuplicateError(PCSEError):
     pass
 
-# Regular expressions for parsing scalar, table and string parameters
-_re_scalar = "[a-zA-Z0-9_]+[\s]*=[\s]*[a-zA-Z0-9_.\-]+"
-_re_table = "[a-zA-Z0-9_]+[\s]*=[\s]*[0-9,.\s\-+]+"
-_re_string = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
-
 def _remove_whitespace(filecontents):
     """
     Remove whitespace (space, newline) from all lines.
@@ -81,6 +76,29 @@ def _find_parameter_sections(body):
     scalars, strings, tables = (" ".join(data) for data in (scalars, strings, tables))
 
     return scalars, strings, tables
+
+# Regular expressions for parsing scalar, table and string parameters
+_re_scalar = "[a-zA-Z0-9_]+[\s]*=[\s]*[a-zA-Z0-9_.\-]+"
+_re_table = "[a-zA-Z0-9_]+[\s]*=[\s]*[0-9,.\s\-+]+"
+_re_string = "[a-zA-Z0-9_]+[\s]*=[\s]*'.*?'"
+
+def _find_individual_pardefs(regexp, parsections):
+    """
+    Splits the string into individual parameter definitions.
+    """
+    # Split the string
+    par_definitions = re.findall(regexp, parsections)
+
+    # Check for parameters that were not parsed correctly
+    rest = re.sub(regexp, "", parsections)  # Remove pardefs from string
+    rest = rest.replace(";", "").strip()  # Remove ; and whitespace
+    if len(rest) > 0:
+        msg = ("Failed to parse the CABO file!\n"
+              f"Found the following parameter definitions:\n {par_definitions}\n"
+              f"But failed to parse:\n '{rest}'")
+        raise PCSEError(msg)
+
+    return par_definitions
 
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
@@ -154,19 +172,6 @@ class CABOFileReader(dict):
             tblvalues.append(value)
         return tblvalues
 
-    def _find_individual_pardefs(self, regexp, parsections):
-        """Splits the string into individual parameters definitions.
-        """
-        par_definitions = re.findall(regexp, parsections)
-        rest = re.sub(regexp, "", parsections)
-        rest = rest.replace(";", "")
-        if rest.strip() != "":
-            msg = "Failed to parse the CABO file!\n" +\
-                  ("Found the following parameter definitions:\n %s" % par_definitions) + \
-                  ("Failed to parse:\n %s" % rest)
-            raise PCSEError(msg)
-        return par_definitions
-
     def __init__(self, fname):
         # Read the file
         with open(fname) as fp:
@@ -188,9 +193,9 @@ class CABOFileReader(dict):
         scalars, strings, tables = _find_parameter_sections(body)
 
         # Parse into individual parameter definitions
-        scalar_defs = self._find_individual_pardefs(_re_scalar, scalars)
-        table_defs = self._find_individual_pardefs(_re_table, tables)
-        string_defs = self._find_individual_pardefs(_re_string, strings)
+        scalar_defs = _find_individual_pardefs(_re_scalar, scalars)
+        table_defs = _find_individual_pardefs(_re_table, tables)
+        string_defs = _find_individual_pardefs(_re_string, strings)
 
         # Parse individual parameter definitions into name & value.
         for parstr in scalar_defs:
