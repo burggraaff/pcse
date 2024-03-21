@@ -63,6 +63,25 @@ def _find_header(filecontents):
 
     return header, body
 
+def _find_parameter_sections(body):
+    """
+    Sort the body text into string, table, and scalar variables.
+    """
+    # Find lines belonging to each category
+    scalars, strings, tables = [], [], []
+    for line in body:
+        if "'" in line: # string parameter
+            strings.append(line)
+        elif "," in line: # table parameter
+            tables.append(line)
+        else:
+            scalars.append(line)
+
+    # Convert the lists of variables into strings
+    scalars, strings, tables = (" ".join(data) for data in (scalars, strings, tables))
+
+    return scalars, strings, tables
+
 class CABOFileReader(dict):
     """Reads CABO files with model parameter definitions.
 
@@ -135,22 +154,6 @@ class CABOFileReader(dict):
             tblvalues.append(value)
         return tblvalues
 
-    def _find_parameter_sections(self, filecontents):
-        "returns the sections defining float, string and table parameters."
-        scalars = ""
-        strings = ""
-        tables = ""
-
-        for line in filecontents:
-            if line.find("'") != -1: # string parameter
-                strings += (line + " ")
-            elif line.find(",") != -1: # table parameter
-                tables += (line + " ")
-            else:
-                scalars += (line + " ")
-
-        return scalars, strings, tables
-
     def _find_individual_pardefs(self, regexp, parsections):
         """Splits the string into individual parameters definitions.
         """
@@ -182,7 +185,7 @@ class CABOFileReader(dict):
         self.header, body = _find_header(filecontents)
 
         # Find parameter sections using string methods
-        scalars, strings, tables = self._find_parameter_sections(body)
+        scalars, strings, tables = _find_parameter_sections(body)
 
         # Parse into individual parameter definitions
         scalar_defs = self._find_individual_pardefs(_re_scalar, scalars)
