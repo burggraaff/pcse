@@ -2,6 +2,7 @@
 # Copyright (c) 2004-2014 Alterra, Wageningen-UR
 # Allard de Wit (allard.dewit@wur.nl), April 2014
 from pathlib import Path
+import copy
 import re
 
 from ..exceptions import PCSEError
@@ -171,7 +172,7 @@ class CABOFileReader(dict):
     written in the CABO format. This class reads the contents, parses
     the parameter names/values and returns them as a dictionary.
 
-    :param fname: parameter file to read and parse
+    :param fname: parameter file to read and parse.
     :returns: dictionary like object with parameter key/value pairs.
 
     Note that this class does not yet fully support reading all features
@@ -179,7 +180,7 @@ class CABOFileReader(dict):
     tabular parameters is not supported and will lead to errors.
 
     The header of the CABO file (marked with ** at the first line) is
-    read and can be retrieved by the get_header() method or just by
+    read and can be retrieved from the .header attribute or just by
     a print on the returned dictionary.
 
     *Example*
@@ -266,3 +267,10 @@ class CABOFileReader(dict):
         bodytext = "\n".join(f"{key}: {value} {type(value)}" for key, value in self.items())
         msg = divider.join([headertext, bodytext])
         return msg
+
+    def copy(self):
+        """
+        Overrides the inherited dict.copy method, which returns a dict.
+        This instead preserves the class and attributes like .header.
+        """
+        return copy.copy(self)
